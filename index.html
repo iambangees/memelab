@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MemeLab — make memes, ship WhatsApp stickers</title>
+<meta name="description" content="A meme maker and WhatsApp sticker maker that runs entirely in your browser. Caption any photo, turn images and GIF frames into 512×512 WebP stickers.">
+<meta property="og:title" content="MemeLab — make memes, ship stickers">
+<meta property="og:description" content="Caption photos into memes, then turn memes, images and GIF frames into WhatsApp stickers. Nothing leaves your device.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="banner.png">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+  :root { --bg:#14101d; --card:#1f1930; --line:#372e52; --text:#f5f1ff; --muted:#b3a8d4; --accent:#ffd23e; --accent2:#25d366; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background:var(--bg); color:var(--text); }
+  .wrap { max-width: 700px; margin: 0 auto; padding: 26px 16px 56px; }
+  h1 { font-size: 33px; margin: 4px 0 2px; }
+  h1 .dot { color: var(--accent); }
+  .tag { color: var(--muted); margin: 0 0 18px; }
+  .hero-img { width:100%; border-radius:16px; border:1px solid var(--line); display:block; margin-bottom: 18px; }
+  .tabs { display:flex; gap:8px; margin-bottom: 14px; }
+  .tab { flex:1; background: var(--card); border:1px solid var(--line); color:var(--muted); border-radius: 12px; padding: 13px; font-size: 15.5px; font-weight: 700; cursor:pointer; }
+  .tab.on { color:#171106; background: var(--accent); border-color: var(--accent); }
+  .tab.on.green { background: var(--accent2); border-color: var(--accent2); color:#06230f; }
+  .card { background: var(--card); border:1px solid var(--line); border-radius: 16px; padding: 18px; }
+  .drop { border: 2px dashed var(--line); border-radius: 12px; padding: 20px; text-align:center; color: var(--muted); cursor:pointer; line-height: 1.55; }
+  .drop:hover { border-color: var(--accent); color: var(--text); }
+  canvas.stage, img.stage { width: 100%; border-radius: 10px; display:block; background: repeating-conic-gradient(#2a2242 0% 25%, #241d38 0% 50%) 0 0/22px 22px; }
+  label { display:block; font-size: 12.5px; text-transform: uppercase; letter-spacing:.05em; color: var(--muted); margin: 14px 0 6px; }
+  input[type=text] { width:100%; background:#120d20; color:var(--text); border:1px solid var(--line); border-radius: 10px; padding: 12px 13px; font-size: 16px; }
+  input[type=range] { width: 100%; }
+  .row { display:flex; gap:10px; flex-wrap: wrap; margin-top: 14px; }
+  button.act { background: var(--accent); color:#171106; border:0; border-radius: 10px; padding: 12px 17px; font-size: 15px; font-weight: 700; cursor:pointer; }
+  button.act.green { background: var(--accent2); color:#06230f; }
+  button.ghost { background: transparent; color: var(--text); border:1px solid var(--line); border-radius: 10px; padding: 12px 16px; font-size: 14.5px; font-weight: 600; cursor:pointer; }
+  .note { color: var(--muted); font-size: 13px; line-height: 1.6; margin-top: 12px; }
+  .steps { line-height: 1.75; font-size: 14.5px; padding-left: 18px; }
+  .steps b { color: var(--accent2); }
+  .hidden { display:none; }
+  .size { font-weight: 700; color: var(--accent2); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>MemeLab<span class="dot">.</span></h1>
+  <p class="tag">Make memes. Ship stickers. Everything runs in your browser — your pictures never leave your device.</p>
+  <img class="hero-img" src="banner.png" alt="MemeLab — meme maker and WhatsApp sticker maker">
+
+  <div class="tabs">
+    <button class="tab on" id="tabMeme">😂 Meme Maker</button>
+    <button class="tab" id="tabSticker">🟢 Sticker Maker</button>
+  </div>
+
+  <!-- MEME MODE -->
+  <div class="card" id="modeMeme">
+    <div class="drop" id="memeDrop">Tap to choose a photo or GIF<br><small>or drag & drop it here · GIFs export as the frame on screen when you download</small></div>
+    <input type="file" id="memeFile" accept="image/*" class="hidden">
+    <div style="margin-top:14px"><canvas id="memeCanvas" class="stage" width="720" height="540"></canvas></div>
+    <label>Top text</label>
+    <input type="text" id="topText" placeholder="WHEN THE GROUP CHAT">
+    <label>Bottom text</label>
+    <input type="text" id="botText" placeholder="FINALLY AGREES ON A TIME">
+    <label>Text size</label>
+    <input type="range" id="fontSize" min="24" max="120" value="56">
+    <div class="row">
+      <button class="act" id="btnMemeDl">Download meme (PNG)</button>
+      <button class="ghost" id="btnToSticker">Make a sticker from this meme →</button>
+      <button class="ghost" id="btnSample">Start with a plain background</button>
+    </div>
+    <p class="note">Classic meme style: bold capitals with a black outline. Type, slide, download.</p>
+  </div>
+
+  <!-- STICKER MODE -->
+  <div class="card hidden" id="modeSticker">
+    <div class="drop" id="stkDrop">Tap to choose an image or GIF<br><small>GIF? It plays below — capture the exact frame you want</small></div>
+    <input type="file" id="stkFile" accept="image/*" class="hidden">
+    <div style="margin-top:14px"><img id="stkPreview" class="stage" alt="Sticker source preview"></div>
+    <div class="row">
+      <button class="ghost" id="btnCapture">📸 Capture this frame (GIFs)</button>
+    </div>
+    <label>Padding around the picture</label>
+    <input type="range" id="stkPad" min="0" max="120" value="28">
+    <label>Background</label>
+    <div class="row" style="margin-top:2px">
+      <button class="ghost" data-bg="transparent">Transparent</button>
+      <button class="ghost" data-bg="#ffffff">White</button>
+      <button class="ghost" data-bg="#ffd23e">Yellow</button>
+      <button class="ghost" data-bg="#25d366">Green</button>
+    </div>
+    <div class="row">
+      <button class="act green" id="btnStickerDl">Download WhatsApp sticker (.webp)</button>
+    </div>
+    <p class="note" id="stkInfo">Stickers are exported at 512×512 WebP — WhatsApp's own format and size. <span class="size" id="stkSize"></span></p>
+    <label>Getting it into WhatsApp</label>
+    <ol class="steps">
+      <li>Download the sticker file above.</li>
+      <li>Open any WhatsApp chat, <b>attach the file and send it</b>.</li>
+      <li><b>Tap the sticker → Add to favourites</b> (⭐). Done — it lives in your sticker tray.</li>
+      <li>Newer WhatsApp versions can also make stickers directly: long-press a photo in a chat → <b>Create sticker</b>.</li>
+    </ol>
+  </div>
+
+  <p class="note" style="margin-top:18px">MemeLab is a static page: no uploads, no accounts, no tracking. Animated GIF → *animated* sticker isn't possible in a plain browser (WhatsApp's animated format needs an encoder a web page doesn't have) — so GIFs become stickers from a frame you choose. Built by Bangees.</p>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+// ---------- tabs ----------
+function setMode(sticker) {
+  $("modeMeme").classList.toggle("hidden", sticker);
+  $("modeSticker").classList.toggle("hidden", !sticker);
+  $("tabMeme").classList.toggle("on", !sticker);
+  $("tabSticker").classList.toggle("on", sticker);
+  $("tabSticker").classList.toggle("green", sticker);
+}
+$("tabMeme").onclick = () => setMode(false);
+$("tabSticker").onclick = () => setMode(true);
+
+// ---------- meme maker ----------
+const mc = $("memeCanvas"), mg = mc.getContext("2d");
+let memeImg = null, memeIsGif = false, memeGifUrl = null;
+
+function drawMeme() {
+  const W = 720;
+  let H = 540;
+  if (memeImg) { const r = (memeImg.naturalHeight || memeImg.videoHeight || 3) / (memeImg.naturalWidth || memeImg.videoWidth || 4); H = Math.max(240, Math.min(900, Math.round(W * r))); }
+  mc.width = W; mc.height = H;
+  if (memeImg) { try { mg.drawImage(memeImg, 0, 0, W, H); } catch (e) { /* gif mid-frame */ } }
+  else { const gr = mg.createLinearGradient(0, 0, W, H); gr.addColorStop(0, "#3b2d63"); gr.addColorStop(1, "#14101d"); mg.fillStyle = gr; mg.fillRect(0, 0, W, H); }
+  const size = +$("fontSize").value;
+  mg.font = `900 ${size}px Impact, "Arial Black", sans-serif`;
+  mg.textAlign = "center"; mg.textBaseline = "middle";
+  const draw = (txt, y) => {
+    if (!txt) return;
+    const t = txt.toUpperCase();
+    mg.lineWidth = Math.max(4, size / 7); mg.strokeStyle = "#000"; mg.fillStyle = "#fff";
+    mg.strokeText(t, W / 2, y); mg.fillText(t, W / 2, y);
+  };
+  draw($("topText").value, size * 0.75);
+  draw($("botText").value, H - size * 0.75);
+}
+["topText", "botText", "fontSize"].forEach(id => $(id).addEventListener("input", drawMeme));
+
+function loadInto(file, isSticker) {
+  if (!file) return;
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => {
+    if (isSticker) { stkImg = img; stkIsGif = file.type === "image/gif"; $("stkPreview").src = url; setTimeout(captureFrame, 60); }
+    else { memeImg = img; memeIsGif = file.type === "image/gif"; memeGifUrl = url; drawMeme(); if (memeIsGif) gifLoop(); }
+  };
+  img.src = url;
+}
+function gifLoop() { if (memeIsGif && memeImg) { drawMeme(); requestAnimationFrame(() => setTimeout(gifLoop, 120)); } }
+
+$("memeDrop").onclick = () => $("memeFile").click();
+$("memeFile").onchange = () => loadInto($("memeFile").files[0], false);
+$("memeDrop").ondragover = (e) => e.preventDefault();
+$("memeDrop").ondrop = (e) => { e.preventDefault(); loadInto(e.dataTransfer.files[0], false); };
+$("btnSample").onclick = () => { memeImg = null; memeIsGif = false; drawMeme(); };
+$("btnMemeDl").onclick = () => { drawMeme(); const a = document.createElement("a"); a.download = "meme.png"; a.href = mc.toDataURL("image/png"); a.click(); };
+$("btnToSticker").onclick = () => {
+  drawMeme();
+  const img = new Image();
+  img.onload = () => { stkImg = img; stkIsGif = false; $("stkPreview").src = img.src; renderStickerInfo(); setMode(true); };
+  img.src = mc.toDataURL("image/png");
+};
+
+// ---------- sticker maker ----------
+let stkImg = null, stkIsGif = false, stkBg = "transparent", stkCaptured = null;
+$("stkDrop").onclick = () => $("stkFile").click();
+$("stkFile").onchange = () => loadInto($("stkFile").files[0], true);
+$("stkDrop").ondragover = (e) => e.preventDefault();
+$("stkDrop").ondrop = (e) => { e.preventDefault(); loadInto(e.dataTransfer.files[0], true); };
+document.querySelectorAll("[data-bg]").forEach(b => b.onclick = () => { stkBg = b.dataset.bg; renderStickerInfo(); });
+
+function captureFrame() {
+  const pv = $("stkPreview");
+  if (!pv.src) return;
+  const cv = document.createElement("canvas");
+  cv.width = pv.naturalWidth || 480; cv.height = pv.naturalHeight || 480;
+  try { cv.getContext("2d").drawImage(pv, 0, 0); stkCaptured = cv; } catch (e) { /* tainted or not ready */ }
+}
+$("btnCapture").onclick = () => { captureFrame(); $("btnCapture").textContent = "📸 Frame captured ✓ — download when ready"; setTimeout(() => $("btnCapture").textContent = "📸 Capture this frame (GIFs)", 1800); };
+
+function stickerCanvas() {
+  const S = 512, pad = +$("stkPad").value;
+  const cv = document.createElement("canvas"); cv.width = S; cv.height = S;
+  const g = cv.getContext("2d");
+  if (stkBg !== "transparent") { g.fillStyle = stkBg; g.fillRect(0, 0, S, S); }
+  const src = stkCaptured || stkImg;
+  if (!src) return cv;
+  const sw = src.naturalWidth || src.width, sh = src.naturalHeight || src.height;
+  const box = S - pad * 2, scale = Math.min(box / sw, box / sh);
+  const w = sw * scale, h = sh * scale;
+  try { g.drawImage(src, (S - w) / 2, (S - h) / 2, w, h); } catch (e) { /* ignore */ }
+  return cv;
+}
+function renderStickerInfo() {
+  stickerCanvas().toBlob((b) => { if (b) $("stkSize").textContent = `Current export: ${(b.size / 1024).toFixed(0)} KB (${b.type.replace("image/", "").toUpperCase()})`; }, "image/webp", 0.92);
+}
+$("stkPad").addEventListener("input", renderStickerInfo);
+
+$("btnStickerDl").onclick = () => {
+  if (!stkImg && !stkCaptured) { $("stkInfo").firstChild.textContent = "Choose an image or GIF first — then this button makes your sticker. "; return; }
+  if (stkIsGif && !stkCaptured) captureFrame();
+  const tryQ = (q) => stickerCanvas().toBlob((b) => {
+    if (!b) return;
+    if (b.type !== "image/webp") {
+      $("stkSize").textContent = "Your browser exported " + b.type.replace("image/", "").toUpperCase() + " instead of WebP — WhatsApp needs WebP for stickers. Try Chrome on Android.";
+      const a = document.createElement("a"); a.download = "sticker.png"; a.href = URL.createObjectURL(b); a.click(); return;
+    }
+    if (b.size > 100 * 1024 && q > 0.45) { tryQ(q - 0.17); return; }
+    $("stkSize").textContent = `Exported: ${(b.size / 1024).toFixed(0)} KB WebP ✓`;
+    const a = document.createElement("a"); a.download = "sticker.webp"; a.href = URL.createObjectURL(b); a.click();
+  }, "image/webp", q);
+  tryQ(0.92);
+};
+
+drawMeme();
+</script>
+</body>
+</html>
